@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StrategoData — Datos, refinados en un producto.</title>
+  <meta name="description" content="StrategoData: datos como servicio. Plataforma gestionada que refina tu data cruda en tablas listas para consumir vía una API medida, con planes y cuotas claras." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%B7%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header class="site">
+  <div class="wrap nav">
+    <div class="nav-mark">Stratego<span class="dot">·</span>Data</div>
+    <nav class="nav-links">
+      <a href="#refineria">La refinería</a>
+      <a href="#plataforma">Plataforma</a>
+      <a href="#integracion">Integración</a>
+      <a href="#planes">Planes</a>
+      <a class="nav-cta" href="#planes">Conseguir una API key</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <div class="eyebrow hero-eyebrow">Datos como servicio · API gestionada</div>
+        <h1 class="hero-title display">Datos, refinados en un <span class="accent">producto.</span></h1>
+        <p class="hero-sub">StrategoData recibe la data cruda de tu operación, la refina mediante un pipeline real bronce → plata → oro orquestado con Airflow, y entrega las tablas listas para consumo a través de una API medida — con planes, cuotas y límites de tasa ya incorporados. La infraestructura la operamos nosotros.</p>
+        <div class="hero-ctas">
+          <a class="btn-primary" href="#planes">Conseguir una API key</a>
+          <a class="btn-secondary" href="#integracion">Ver la integración</a>
+        </div>
+        <div class="hero-facts">
+          <div class="hero-fact"><span class="num tabular">3</span><span class="lbl">niveles de refinamiento</span></div>
+          <div class="hero-fact"><span class="num tabular">0</span><span class="lbl">infraestructura que administra tu equipo</span></div>
+          <div class="hero-fact"><span class="num tabular">24/7</span><span class="lbl">orquestación en operación</span></div>
+        </div>
+      </div>
+      <div class="terminal">
+        <div class="terminal-bar"><span></span><span></span><span></span><div class="lbl">gold.resumen_diario_por_clase</div></div>
+        <div class="terminal-body"><pre><span class="tk-mut"># leer una tabla terminada</span>
+<span class="tk-cmd">curl</span> -H <span class="tk-str">"X-API-Key: $KEY"</span> \
+  <span class="tk-str">https://api.strategodata.io/v1/tables/gold/resumen_diario_por_clase</span>
+
+<span class="tk-punc">{</span>
+  <span class="tk-key">"table"</span><span class="tk-punc">:</span> <span class="tk-str">"gold.resumen_diario_por_clase"</span><span class="tk-punc">,</span>
+  <span class="tk-key">"row_count"</span><span class="tk-punc">:</span> <span class="tk-cmd">2</span><span class="tk-punc">,</span>
+  <span class="tk-key">"records"</span><span class="tk-punc">:</span> <span class="tk-punc">[</span>
+    <span class="tk-punc">{</span><span class="tk-key">"clase"</span><span class="tk-punc">:</span> <span class="tk-str">"probiotico"</span><span class="tk-punc">,</span> <span class="tk-key">"score_promedio"</span><span class="tk-punc">:</span> <span class="tk-cmd">0.82</span><span class="tk-punc">}</span><span class="tk-punc">,</span>
+    <span class="tk-punc">{</span><span class="tk-key">"clase"</span><span class="tk-punc">:</span> <span class="tk-str">"no_probiotico"</span><span class="tk-punc">,</span> <span class="tk-key">"score_promedio"</span><span class="tk-punc">:</span> <span class="tk-cmd">0.15</span><span class="tk-punc">}</span>
+  <span class="tk-punc">]</span>
+<span class="tk-punc">}</span></pre></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="thesis">
+    <div class="wrap">
+      <p class="lead">La mayoría de las plataformas obligan a elegir entre pagar de más por un <span class="accent">warehouse sobredimensionado</span>, o construir la infraestructura de datos a pulso, pieza por pieza.</p>
+      <p class="thesis-note">StrategoData resuelve los dos problemas con una arquitectura pensada para eficiencia real, sin licencias infladas ni sobreingeniería. Esa eficiencia se traduce directo en un costo por request más bajo — y en datos limpios, listos para usar, sin que tu equipo tenga que operar nada.</p>
+    </div>
+  </div>
+
+  <section id="refineria">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">La refinería</div>
+        <h2 class="section-title">Tres niveles. Nada inventado para la página de venta.</h2>
+        <p>Esta es la arquitectura medallion real que corre la plataforma — los mismos nombres aparecen en el registro de tablas, las rutas del API y los DAGs de Airflow.</p>
+      </div>
+
+      <div class="refinery-strip" id="ingots">
+        <div class="ingot ingot--bronze">
+          <div class="tier-bar"></div>
+          <div class="tier-name">Bronce</div>
+          <div class="tier-role">bronze.*</div>
+          <p class="tier-desc">Crudo, tal como llega de la fuente. Solo se agrega, no se toca, con marca de tiempo de ingesta y origen para trazabilidad completa.</p>
+        </div>
+        <div class="ingot ingot--silver">
+          <div class="tier-bar"></div>
+          <div class="tier-name">Plata</div>
+          <div class="tier-role">silver.*</div>
+          <p class="tier-desc">Limpio, tipado, validado. Reglas de calidad aplicadas — nulos manejados, tipos convertidos — todavía sin lógica de negocio.</p>
+        </div>
+        <div class="ingot ingot--gold">
+          <div class="tier-bar"></div>
+          <div class="tier-name">Oro</div>
+          <div class="tier-role">gold.*</div>
+          <p class="tier-desc">Agregado y servido. Lo que consumen dashboards, reportes y entrenamiento de modelos a través del API — este es el nivel que expone el API.</p>
+        </div>
+      </div>
+      <div class="orchestration-note"><span class="tag">Airflow</span> programa y reintenta cada nivel de forma independiente — que bronce falle no obliga a re-ingestar oro.</div>
+    </div>
+  </section>
+
+  <section id="plataforma">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Qué gestionamos</div>
+        <h2 class="section-title">Una plataforma totalmente gestionada.</h2>
+        <p>Tu equipo envía la data cruda (o conecta sus fuentes); StrategoData se encarga de la infraestructura, el linaje y el cómputo. El resultado se consume limpio, medido, vía API.</p>
+      </div>
+
+      <div class="feature-grid">
+        <div class="feature">
+          <div class="mark">ALMACENAMIENTO</div>
+          <h3>Nativo en parquet</h3>
+          <p>Los datasets son parquet particionado plano sobre almacenamiento de objetos — sin servicio de catálogo Iceberg, sin formato de tabla de proveedor que licenciar u operar.</p>
+        </div>
+        <div class="feature">
+          <div class="mark">METADATOS</div>
+          <h3>Registro en Postgres</h3>
+          <p>Esquema, particiones y linaje de cada dataset quedan trazados en un registro liviano — visibilidad completa sin el costo de un servicio de catálogo aparte.</p>
+        </div>
+        <div class="feature">
+          <div class="mark">ORQUESTACIÓN</div>
+          <h3>Airflow, no cron improvisado</h3>
+          <p>Bronce, plata y oro son tasks independientes y reintentables en DAGs que se pueden leer, no un script que alguien corrió una vez desde su laptop.</p>
+        </div>
+        <div class="feature">
+          <div class="mark">CÓMPUTO</div>
+          <h3>DuckDB y Polars</h3>
+          <p>Las transformaciones corren embebidas, sin JVM ni cluster que mantener vivo — esa eficiencia de cómputo se traduce en un costo por request más bajo.</p>
+        </div>
+        <div class="feature">
+          <div class="mark">ACCESO</div>
+          <h3>API REST medida</h3>
+          <p>Cada key tiene un plan: límite de tasa, cuota mensual y alcance de lectura/escritura exigidos en cada request, no agregados después.</p>
+        </div>
+        <div class="feature">
+          <div class="mark">OPERACIÓN</div>
+          <h3>Infraestructura gestionada de punta a punta</h3>
+          <p>Almacenamiento, registro, orquestación y API corren de nuestro lado, sobre una arquitectura eficiente sin clusters redundantes. Ningún equipo de plataforma propio que armar ni mantener.</p>
+        </div>
+        <div class="feature roadmap">
+          <div class="mark">EN EL ROADMAP</div>
+          <h3>Feature store para entrenamiento</h3>
+          <p>Recuperación de features punto-en-el-tiempo para entrenar modelos, sobre las mismas tablas gold. No está construido todavía — lo decimos acá, no lo vendemos como si ya existiera.</p>
+        </div>
+        <div class="feature roadmap">
+          <div class="mark">EN EL ROADMAP</div>
+          <h3>Portal de keys self-service</h3>
+          <p>Hoy las keys se emiten por CLI. Un dashboard self-service para aprovisionar y ver consumo es el próximo paso.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="integracion">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Integración</div>
+        <h2 class="section-title">Leer una tabla. Consultar el consumo. Eso es todo.</h2>
+        <p>El API habla REST plano — cualquier sistema que pueda enviar un header puede consumirlo. Con Python, es posible saltarse el paso por HTTP directamente.</p>
+      </div>
+
+      <div class="demo-grid">
+        <div class="demo-col">
+          <h3>// vía REST, cualquier lenguaje</h3>
+          <div class="terminal">
+            <div class="terminal-bar"><span></span><span></span><span></span><div class="lbl">shell</div></div>
+            <div class="terminal-body"><pre><span class="tk-mut"># ver hasta dónde llega una key</span>
+<span class="tk-cmd">curl</span> -H <span class="tk-str">"X-API-Key: $KEY"</span> \
+  <span class="tk-str">https://api.strategodata.io/v1/usage</span>
+
+<span class="tk-punc">{</span>
+  <span class="tk-key">"plan"</span><span class="tk-punc">:</span> <span class="tk-str">"pro"</span><span class="tk-punc">,</span>
+  <span class="tk-key">"rate_limit_per_minute"</span><span class="tk-punc">:</span> <span class="tk-cmd">600</span><span class="tk-punc">,</span>
+  <span class="tk-key">"monthly_quota"</span><span class="tk-punc">:</span> <span class="tk-cmd">1000000</span><span class="tk-punc">,</span>
+  <span class="tk-key">"requests_this_month"</span><span class="tk-punc">:</span> <span class="tk-cmd">48213</span>
+<span class="tk-punc">}</span></pre></div>
+          </div>
+        </div>
+        <div class="demo-col">
+          <h3>// vía Python, sin pasar por HTTP</h3>
+          <div class="terminal">
+            <div class="terminal-bar"><span></span><span></span><span></span><div class="lbl">python</div></div>
+            <div class="terminal-body"><pre><span class="tk-key">from</span> strategodata_client <span class="tk-key">import</span> StrategoDataClient
+
+dl = StrategoDataClient<span class="tk-punc">()</span>
+df = dl.read<span class="tk-punc">(</span><span class="tk-str">"gold.resumen_diario_por_clase"</span><span class="tk-punc">)</span>
+
+<span class="tk-mut"># -> pandas.DataFrame, directo desde parquet</span></pre></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="planes">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Planes</div>
+        <h2 class="section-title">Cada key, certificada con sus propios límites.</h2>
+        <p>Se exige en cada request — una key no puede exceder en silencio lo que su plan permite.</p>
+      </div>
+
+      <div class="plans-sheet">
+        <table class="plans">
+          <thead>
+            <tr>
+              <th>Plan</th>
+              <th>Límite de tasa</th>
+              <th>Cuota mensual</th>
+              <th>Lectura</th>
+              <th>Escritura</th>
+              <th>Pensado para</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="plan-name p-free">Free</td>
+              <td class="num tabular">60 req/min</td>
+              <td class="num tabular">10.000</td>
+              <td class="yn-yes">sí</td>
+              <td class="yn-no">no</td>
+              <td>Probar el API, paneles pequeños</td>
+            </tr>
+            <tr>
+              <td class="plan-name p-pro">Pro</td>
+              <td class="num tabular">600 req/min</td>
+              <td class="num tabular">1.000.000</td>
+              <td class="yn-yes">sí</td>
+              <td class="yn-no">no</td>
+              <td>Consumidores en producción, integraciones con partners</td>
+            </tr>
+            <tr>
+              <td class="plan-name p-enterprise">Enterprise</td>
+              <td class="num tabular">personalizado</td>
+              <td class="num tabular">&gt; 10.000.000</td>
+              <td class="yn-yes">sí</td>
+              <td class="yn-yes">sí</td>
+              <td>Ingesta masiva de data propia, pipelines dedicados y soporte con SLA</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="plans-note">Las keys se guardan hasheadas. Hoy se aprovisionan desde el equipo de StrategoData al activar la cuenta — un flujo de alta self-service está en el roadmap.</p>
+    </div>
+  </section>
+
+  <div class="cta-band">
+    <div class="wrap cta-inner">
+      <h2>Aprovisionar una key. Leer una tabla gold hoy.</h2>
+      <a class="btn-primary" href="#planes">Conseguir una API key</a>
+    </div>
+  </div>
+</main>
+
+<footer class="site">
+  <div class="wrap footer-inner">
+    <div class="nav-mark">Stratego<span class="dot">·</span>Data</div>
+    <div class="footer-links">
+      <a href="#refineria">La refinería</a>
+      <a href="#integracion">Integración</a>
+      <a href="#planes">Planes</a>
+    </div>
+    <div>bronce → plata → oro, entregado como servicio.</div>
+  </div>
+</footer>
+
+<script src="script.js" defer></script>
+</body>
+</html>
