@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cliente Python — Documentación StrategoData</title>
+  <meta name="description" content="Cómo instalar y usar strategodata_client para leer y escribir datasets desde Python." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%B7%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+<header class="site">
+  <div class="wrap nav">
+    <a href="../index.html" style="text-decoration:none;color:inherit;"><div class="nav-mark">Stratego<span class="dot">·</span>Data</div></a>
+    <nav class="nav-links">
+      <a href="../index.html#refineria">La refinería</a>
+      <a href="../index.html#plataforma">Plataforma</a>
+      <a href="index.html">Documentación</a>
+      <a href="../index.html#planes">Planes</a>
+      <a class="nav-cta" href="../index.html#planes">Conseguir una API key</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap docs-shell">
+  <nav class="docs-nav">
+    <div class="docs-nav-title">Documentación</div>
+    <a href="index.html">Resumen</a>
+    <a href="getting-started.html">Cómo empezar</a>
+    <a href="integration.html">Integración (API REST)</a>
+    <a href="client.html" class="active">Cliente Python</a>
+    <a href="errors.html">Manejo de errores</a>
+  </nav>
+  <article class="prose">
+    <a class="docs-back" href="../index.html">&larr; Volver a la landing</a>
+<h1 id="cliente-python-strategodata_client">Cliente Python (<code>strategodata_client</code>)</h1>
+<p>Para consumo desde Python, <code>strategodata_client</code> es más eficiente que pasar
+por HTTP/JSON: lee/escribe parquet directo contra MinIO/S3 y resuelve las
+rutas contra el registro de metadatos en Postgres, sin la vuelta extra de
+serializar a JSON. Pensado tanto para uso interno (jobs, notebooks) como
+para cualquier proyecto que quiera leer datasets sin pasar por la API REST.</p>
+<h2 id="instalacion">Instalación</h2>
+<pre><code class="language-bash">pip install -e ./backend/libs/client
+</code></pre>
+<p>O como dependencia en otro proyecto (vía git, hasta que se publique en un
+índice):</p>
+<pre><code class="language-bash">pip install git+https://github.com/BIOS-Co/DATALAKE.git#subdirectory=backend/libs/client
+</code></pre>
+<h2 id="configuracion">Configuración</h2>
+<p>Todos los parámetros son opcionales al construir el cliente — si no se
+pasan, se leen de variables de entorno (así el mismo código funciona dentro
+de Docker, usando nombres de servicio, y afuera, usando localhost o la IP
+de la VM):</p>
+<pre><code class="language-bash">export STRATEGODATA_S3_ENDPOINT=http://&lt;host&gt;:9000
+export STRATEGODATA_S3_ACCESS_KEY=admin
+export STRATEGODATA_S3_SECRET_KEY=&lt;password&gt;
+export STRATEGODATA_REGISTRY_DSN=postgresql://strategodata:&lt;password&gt;@&lt;host&gt;:5432/strategodata
+</code></pre>
+<pre><code class="language-python">from strategodata_client import StrategoDataClient
+
+dl = StrategoDataClient()  # usa las variables de entorno de arriba
+
+# o explícito:
+dl = StrategoDataClient(
+    s3_endpoint=&quot;http://localhost:9000&quot;,
+    s3_access_key=&quot;admin&quot;,
+    s3_secret_key=&quot;&lt;password&gt;&quot;,
+    registry_dsn=&quot;postgresql://strategodata:&lt;password&gt;@localhost:5432/strategodata&quot;,
+)
+</code></pre>
+<h2 id="uso">Uso</h2>
+<h3 id="leer">Leer</h3>
+<pre><code class="language-python">df = dl.read(&quot;gold.resumen_diario_por_clase&quot;)            # -&gt; pandas.DataFrame
+df = dl.read(&quot;gold.resumen_diario_por_clase&quot;, limit=100)  # solo las primeras 100 filas
+
+tabla = dl.read_arrow(&quot;gold.resumen_diario_por_clase&quot;)     # -&gt; pyarrow.Table, más eficiente para datasets grandes
+</code></pre>
+<h3 id="escribir">Escribir</h3>
+<pre><code class="language-python">dl.write(df_nuevo, &quot;gold.mi_resultado&quot;)                    # mode=&quot;append&quot; por default
+dl.write(df_nuevo, &quot;gold.mi_resultado&quot;, mode=&quot;overwrite&quot;)
+dl.write(df_nuevo, &quot;gold.mi_resultado&quot;, partition_columns=[&quot;fecha&quot;])  # particionado Hive-style
+</code></pre>
+<p>Si el namespace (capa) no existe todavía, se crea automáticamente al
+escribir — no hace falta un paso previo de "crear bucket" ni "crear tabla".</p>
+<h3 id="explorar">Explorar</h3>
+<pre><code class="language-python">dl.list_namespaces()                          # ['bronze', 'silver', 'gold']
+dl.list_tables(&quot;gold&quot;)                        # ['resumen_diario_por_clase', ...]
+dl.table_schema(&quot;gold.resumen_diario_por_clase&quot;)  # {'clase': 'large_string', ...}
+</code></pre>
+<h2 id="escritura-y-concurrencia">Escritura y concurrencia</h2>
+<p>Un <code>write(..., mode="overwrite")</code> no borra y reescribe en el lugar: escribe
+en una carpeta nueva con nombre único y recién al final mueve el puntero del
+registro de metadatos a esa carpeta. Sin esto, dos escritores <code>overwrite</code>
+concurrentes sobre la misma tabla (por ejemplo, un trigger manual de Airflow
+que se cruza con la corrida programada) corrompen el dataset, porque ambos
+borrarían y escribirían en el mismo directorio a la vez. La versión anterior
+se borra recién después, de forma best-effort — si esa limpieza falla, o si
+otro escritor ya la reemplazó, queda una carpeta huérfana en MinIO (basura
+inofensiva), no un dataset corrupto para los lectores.</p>
+<p><code>mode="append"</code> no tiene este problema — solo agrega archivos nuevos, no
+borra nada.</p>
+<h2 id="errores-del-lado-del-cliente">Errores del lado del cliente</h2>
+<p><code>strategodata_client</code> no atrapa excepciones — las deja subir tal cual, para
+que el código que lo llama decida cómo manejarlas:</p>
+<table>
+<thead>
+<tr>
+<th>Excepción</th>
+<th>Cuándo ocurre</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ValueError("table_name debe tener formato 'capa.tabla'...")</code></td>
+<td>Se llamó a <code>read</code>/<code>write</code>/<code>table_schema</code> con un nombre sin punto, ej. <code>dl.read("resumen")</code> en vez de <code>dl.read("gold.resumen")</code>.</td>
+</tr>
+<tr>
+<td><code>ValueError("Dataset '...' no existe en el registro")</code></td>
+<td>Se intentó leer o pedir el esquema de una tabla que nunca se escribió.</td>
+</tr>
+<tr>
+<td>Excepciones de <code>psycopg2</code></td>
+<td>Problema de conexión a Postgres (DSN incorrecto, base caída).</td>
+</tr>
+<tr>
+<td>Excepciones de <code>s3fs</code>/<code>pyarrow</code></td>
+<td>Problema de conexión a MinIO/S3, o datos corruptos en el path registrado.</td>
+</tr>
+</tbody>
+</table>
+<p>Para más contexto sobre cómo estos mismos casos se traducen a códigos HTTP
+cuando se consume vía la API REST en vez del cliente Python, ver
+<a href="errors.html">manejo de errores</a>.</p>
+<h2 id="diferencias-con-la-version-anterior-iceberg">Diferencias con la versión anterior (Iceberg)</h2>
+<p>Este cliente reemplazó un catálogo Iceberg REST por este registro de
+metadatos propio en Postgres. A cambio de simplicidad operativa (sin
+servicio de catálogo aparte, todo corre en una VM), se pierden:</p>
+<ul>
+<li><strong>Transacciones ACID</strong> entre escritores concurrentes de tablas distintas
+  (dentro de una misma tabla, ver la nota de concurrencia arriba).</li>
+<li><strong>Time travel</strong> — no hay <code>table_history</code>/<code>read_as_of</code>.</li>
+<li><strong>Evolución de esquema</strong> automática entre escrituras con columnas
+  distintas.</li>
+</ul>
+<p>Si estas garantías se vuelven necesarias más adelante, se puede reintroducir
+un table format (Iceberg o Delta Lake) sin cambiar la interfaz pública del
+cliente (<code>read</code>/<code>write</code>/<code>list_tables</code>).</p>
+  </article>
+</main>
+
+<footer class="site">
+  <div class="wrap footer-inner">
+    <div class="nav-mark">Stratego<span class="dot">·</span>Data</div>
+    <div class="footer-links">
+      <a href="../index.html#refineria">La refinería</a>
+      <a href="../index.html#integracion">Integración</a>
+      <a href="../index.html#planes">Planes</a>
+      <a href="index.html">Documentación</a>
+    </div>
+    <div>bronce &rarr; plata &rarr; oro, entregado como servicio.</div>
+  </div>
+</footer>
+</body>
+</html>

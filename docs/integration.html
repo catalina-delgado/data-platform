@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Integración (API REST) — Documentación StrategoData</title>
+  <meta name="description" content="Referencia completa de la API REST de StrategoData: endpoints, autenticación, planes y límites." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%B7%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+<header class="site">
+  <div class="wrap nav">
+    <a href="../index.html" style="text-decoration:none;color:inherit;"><div class="nav-mark">Stratego<span class="dot">·</span>Data</div></a>
+    <nav class="nav-links">
+      <a href="../index.html#refineria">La refinería</a>
+      <a href="../index.html#plataforma">Plataforma</a>
+      <a href="index.html">Documentación</a>
+      <a href="../index.html#planes">Planes</a>
+      <a class="nav-cta" href="../index.html#planes">Conseguir una API key</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap docs-shell">
+  <nav class="docs-nav">
+    <div class="docs-nav-title">Documentación</div>
+    <a href="index.html">Resumen</a>
+    <a href="getting-started.html">Cómo empezar</a>
+    <a href="integration.html" class="active">Integración (API REST)</a>
+    <a href="client.html">Cliente Python</a>
+    <a href="errors.html">Manejo de errores</a>
+  </nav>
+  <article class="prose">
+    <a class="docs-back" href="../index.html">&larr; Volver a la landing</a>
+<h1 id="integracion-api-rest">Integración (API REST)</h1>
+<p>Base URL local: <code>http://localhost:8000</code>. En producción, la que te haya dado
+el equipo de StrategoData (ej. <code>https://api.strategodata.io</code>).</p>
+<p>Los endpoints de datos están versionados bajo <code>/v1</code> — es la única versión
+que existe hoy; si en el futuro hay cambios incompatibles, se sumará <code>/v2</code>
+sin romper <code>/v1</code>. <code>/</code> y <code>/health</code> no están versionados porque describen la
+API en sí, no los datos.</p>
+<h2 id="autenticacion">Autenticación</h2>
+<p>Todas las rutas bajo <code>/v1</code> requieren el header <code>X-API-Key</code>:</p>
+<pre><code>X-API-Key: sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+</code></pre>
+<p>No hay OAuth, JWT ni sesiones — es un secreto único por consumidor. Guardarlo
+como cualquier credencial (variable de entorno, secret manager); no
+commitearlo. Ver <a href="getting-started.html#1-conseguir-una-api-key">cómo conseguir una key</a>.</p>
+<h2 id="planes-y-limites">Planes y límites</h2>
+<table>
+<thead>
+<tr>
+<th>Plan</th>
+<th>Límite de tasa</th>
+<th>Cuota mensual</th>
+<th>Lectura</th>
+<th>Escritura</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>free</code></td>
+<td>60 req/min</td>
+<td>10.000</td>
+<td>sí</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>pro</code></td>
+<td>600 req/min</td>
+<td>1.000.000</td>
+<td>sí</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>internal</code></td>
+<td>6.000 req/min</td>
+<td>sin límite</td>
+<td>sí</td>
+<td>sí</td>
+</tr>
+</tbody>
+</table>
+<p>El límite de tasa es una ventana fija de 60 segundos por key (no un token
+bucket): al pasarse, la API devuelve <code>429</code> hasta que empieza el minuto
+siguiente. La cuota mensual se resetea el día 1 de cada mes. Ver
+<a href="errors.html#429-too-many-requests">manejo de errores</a> para cómo reaccionar.</p>
+<h2 id="convencion-de-capas">Convención de capas</h2>
+<p>Todo dataset se nombra <code>&lt;capa&gt;.&lt;tabla&gt;</code>, ej. <code>gold.resumen_diario_por_clase</code>:</p>
+<ul>
+<li><strong>bronze</strong>: datos crudos, tal como llegan de la fuente.</li>
+<li><strong>silver</strong>: datos limpios, tipados y validados.</li>
+<li><strong>gold</strong>: datos agregados, listos para consumo — es la capa que la mayoría
+  de los consumidores externos va a leer.</li>
+</ul>
+<h2 id="endpoints">Endpoints</h2>
+<h3 id="get"><code>GET /</code></h3>
+<p>Sin autenticación. Info general de la API: planes disponibles, quickstart de
+endpoints, ejemplo de curl.</p>
+<h3 id="get-health"><code>GET /health</code></h3>
+<p>Sin autenticación. Chequeo de salud para monitoreo (<code>{"status": "ok"}</code>).</p>
+<h3 id="get-v1namespaces"><code>GET /v1/namespaces</code></h3>
+<p>Lista las capas disponibles.</p>
+<pre><code class="language-bash">curl -H &quot;X-API-Key: $KEY&quot; https://api.strategodata.io/v1/namespaces
+</code></pre>
+<pre><code class="language-json">{ &quot;namespaces&quot;: [&quot;bronze&quot;, &quot;silver&quot;, &quot;gold&quot;] }
+</code></pre>
+<h3 id="get-v1namespacesnamespacetables"><code>GET /v1/namespaces/{namespace}/tables</code></h3>
+<p>Lista las tablas dentro de una capa.</p>
+<pre><code class="language-bash">curl -H &quot;X-API-Key: $KEY&quot; https://api.strategodata.io/v1/namespaces/gold/tables
+</code></pre>
+<pre><code class="language-json">{ &quot;namespace&quot;: &quot;gold&quot;, &quot;tables&quot;: [&quot;resumen_diario_por_clase&quot;] }
+</code></pre>
+<h3 id="get-v1tablesnamespacetable"><code>GET /v1/tables/{namespace}/{table}</code></h3>
+<p>Lee una tabla y devuelve los registros en JSON.</p>
+<table>
+<thead>
+<tr>
+<th>Query param</th>
+<th>Tipo</th>
+<th>Default</th>
+<th>Descripción</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>limit</code></td>
+<td>int</td>
+<td><code>1000</code></td>
+<td>Máximo de filas a devolver. No es paginación real — para datasets grandes, usar <a href="client.html"><code>strategodata_client</code></a> en vez del endpoint HTTP.</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-bash">curl -H &quot;X-API-Key: $KEY&quot; \
+  &quot;https://api.strategodata.io/v1/tables/gold/resumen_diario_por_clase?limit=10&quot;
+</code></pre>
+<pre><code class="language-json">{
+  &quot;table&quot;: &quot;gold.resumen_diario_por_clase&quot;,
+  &quot;row_count&quot;: 2,
+  &quot;records&quot;: [ { &quot;clase&quot;: &quot;probiotico&quot;, &quot;score_promedio&quot;: 0.82 } ]
+}
+</code></pre>
+<h3 id="post-v1tablesnamespacetable"><code>POST /v1/tables/{namespace}/{table}</code></h3>
+<p>Escribe registros en una tabla (la crea si no existe). <strong>Reservado a keys de
+plan <code>internal</code></strong> — ver <a href="errors.html#403-forbidden">403 Forbidden</a>.</p>
+<p>Body:</p>
+<pre><code class="language-json">{
+  &quot;records&quot;: [{ &quot;id&quot;: 1, &quot;clase&quot;: &quot;probiotico&quot;, &quot;score&quot;: 0.82 }],
+  &quot;mode&quot;: &quot;overwrite&quot;,
+  &quot;partition_columns&quot;: [&quot;fecha&quot;]
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Default</th>
+<th>Descripción</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>records</code></td>
+<td>lista de objetos</td>
+<td>—</td>
+<td>Filas a escribir.</td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td><code>"append"</code> | <code>"overwrite"</code></td>
+<td><code>"append"</code></td>
+<td><code>append</code> agrega archivos nuevos; <code>overwrite</code> reemplaza el dataset completo (ver <a href="client.html#escritura-y-concurrencia">nota de concurrencia</a>).</td>
+</tr>
+<tr>
+<td><code>partition_columns</code></td>
+<td>lista de strings</td>
+<td><code>null</code></td>
+<td>Columnas por las que particionar (Hive-style), opcional.</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-bash">curl -X POST -H &quot;X-API-Key: $KEY&quot; -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;records&quot;: [{&quot;id&quot;: 1, &quot;clase&quot;: &quot;probiotico&quot;, &quot;score&quot;: 0.82}], &quot;mode&quot;: &quot;overwrite&quot;}' \
+  https://api.strategodata.io/v1/tables/gold/prueba
+</code></pre>
+<pre><code class="language-json">{ &quot;table&quot;: &quot;gold.prueba&quot;, &quot;rows_written&quot;: 1, &quot;mode&quot;: &quot;overwrite&quot; }
+</code></pre>
+<p>Pensado para publicaciones puntuales de volumen moderado — para ingesta
+masiva, usar un job de Airflow con <code>strategodata_client</code> directamente.</p>
+<h3 id="get-v1tablesnamespacetableschema"><code>GET /v1/tables/{namespace}/{table}/schema</code></h3>
+<p>Devuelve el esquema (columnas y tipos) de una tabla.</p>
+<pre><code class="language-bash">curl -H &quot;X-API-Key: $KEY&quot; \
+  https://api.strategodata.io/v1/tables/gold/resumen_diario_por_clase/schema
+</code></pre>
+<pre><code class="language-json">{
+  &quot;table&quot;: &quot;gold.resumen_diario_por_clase&quot;,
+  &quot;schema&quot;: { &quot;clase&quot;: &quot;large_string&quot;, &quot;score_promedio&quot;: &quot;double&quot; }
+}
+</code></pre>
+<h3 id="get-v1usage"><code>GET /v1/usage</code></h3>
+<p>Uso de la key que hace la request, en lo que va del día y del mes, más su
+límite y cuota. Ver <a href="getting-started.html#4-revisar-el-consumo">ejemplo completo</a>.</p>
+  </article>
+</main>
+
+<footer class="site">
+  <div class="wrap footer-inner">
+    <div class="nav-mark">Stratego<span class="dot">·</span>Data</div>
+    <div class="footer-links">
+      <a href="../index.html#refineria">La refinería</a>
+      <a href="../index.html#integracion">Integración</a>
+      <a href="../index.html#planes">Planes</a>
+      <a href="index.html">Documentación</a>
+    </div>
+    <div>bronce &rarr; plata &rarr; oro, entregado como servicio.</div>
+  </div>
+</footer>
+</body>
+</html>

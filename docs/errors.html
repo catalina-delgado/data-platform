@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manejo de errores — Documentación StrategoData</title>
+  <meta name="description" content="Códigos de error de la API de StrategoData y cómo reaccionar ante cada uno." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%B7%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+<header class="site">
+  <div class="wrap nav">
+    <a href="../index.html" style="text-decoration:none;color:inherit;"><div class="nav-mark">Stratego<span class="dot">·</span>Data</div></a>
+    <nav class="nav-links">
+      <a href="../index.html#refineria">La refinería</a>
+      <a href="../index.html#plataforma">Plataforma</a>
+      <a href="index.html">Documentación</a>
+      <a href="../index.html#planes">Planes</a>
+      <a class="nav-cta" href="../index.html#planes">Conseguir una API key</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap docs-shell">
+  <nav class="docs-nav">
+    <div class="docs-nav-title">Documentación</div>
+    <a href="index.html">Resumen</a>
+    <a href="getting-started.html">Cómo empezar</a>
+    <a href="integration.html">Integración (API REST)</a>
+    <a href="client.html">Cliente Python</a>
+    <a href="errors.html" class="active">Manejo de errores</a>
+  </nav>
+  <article class="prose">
+    <a class="docs-back" href="../index.html">&larr; Volver a la landing</a>
+<h1 id="manejo-de-errores">Manejo de errores</h1>
+<h2 id="formato">Formato</h2>
+<p>Todos los errores de la API REST devuelven el mismo formato (estándar de
+FastAPI):</p>
+<pre><code class="language-json">{ &quot;detail&quot;: &quot;descripción legible del error&quot; }
+</code></pre>
+<p><code>detail</code> es texto pensado para loguear o mostrar en un mensaje de error, no
+un código estable para comparar por igualdad — para decidir el flujo,
+revisar el <strong>status code HTTP</strong>, no el contenido de <code>detail</code>.</p>
+<h2 id="codigos-http">Códigos HTTP</h2>
+<h3 id="400-bad-request"><code>400 Bad Request</code></h3>
+<p><code>mode</code> en el body de un <code>POST /v1/tables/{namespace}/{table}</code> no es
+<code>"append"</code> ni <code>"overwrite"</code>.</p>
+<pre><code class="language-json">{ &quot;detail&quot;: &quot;mode debe ser 'append' u 'overwrite'&quot; }
+</code></pre>
+<p><strong>Cómo reaccionar</strong>: es un error del lado del que llama — corregir el body,
+no reintentar tal cual.</p>
+<h3 id="401-unauthorized"><code>401 Unauthorized</code></h3>
+<p>Falta el header <code>X-API-Key</code>, o la key no existe / fue revocada.</p>
+<pre><code class="language-json">{ &quot;detail&quot;: &quot;Falta el header X-API-Key.&quot; }
+{ &quot;detail&quot;: &quot;API key inválida o revocada.&quot; }
+</code></pre>
+<p><strong>Cómo reaccionar</strong>: revisar que el header se esté mandando y que la key
+siga activa (<code>docker exec strategodata-api python manage_keys.py list</code>). No
+tiene sentido reintentar sin cambiar la key.</p>
+<h3 id="403-forbidden"><code>403 Forbidden</code></h3>
+<p>Se intentó escribir (<code>POST /v1/tables/...</code>) con una key que no es de plan
+<code>internal</code>.</p>
+<pre><code class="language-json">{ &quot;detail&quot;: &quot;Escribir requiere una API key de plan 'internal'.&quot; }
+</code></pre>
+<p><strong>Cómo reaccionar</strong>: las keys <code>free</code>/<code>pro</code> son de solo lectura por diseño —
+no es un bug. Si el caso de uso realmente necesita escribir, conseguir una
+key <code>internal</code> (pipelines propios) en vez de reintentar.</p>
+<h3 id="404-not-found"><code>404 Not Found</code></h3>
+<p>La capa, tabla, o combinación <code>namespace.tabla</code> no existe en el registro.</p>
+<pre><code class="language-json">{ &quot;detail&quot;: &quot;No se pudo leer la tabla: Dataset 'gold.no_existe' no existe en el registro&quot; }
+</code></pre>
+<p><strong>Cómo reaccionar</strong>: confirmar el nombre exacto con
+<code>GET /v1/namespaces/{namespace}/tables</code> antes de leer. Un typo en el nombre
+de la tabla es la causa más común.</p>
+<h3 id="429-too-many-requests"><code>429 Too Many Requests</code></h3>
+<p>Dos causas posibles, distinguibles por el mensaje:</p>
+<p><strong>Límite de tasa</strong> (ventana de 60 segundos):</p>
+<pre><code class="language-json">{ &quot;detail&quot;: &quot;Límite de tasa excedido (60 req/min en plan 'free').&quot; }
+</code></pre>
+<p><strong>Cómo reaccionar</strong>: esperar y reintentar — el contador se resetea al
+empezar el siguiente minuto. Si esto pasa seguido en producción, es señal
+de que hace falta un plan con más límite (<code>pro</code>), no de que haya que
+reintentar más agresivo.</p>
+<p><strong>Cuota mensual excedida</strong>:</p>
+<pre><code class="language-json">{ &quot;detail&quot;: &quot;Cuota mensual del plan 'pro' excedida (1000000 requests).&quot; }
+</code></pre>
+<p><strong>Cómo reaccionar</strong>: reintentar no sirve hasta el mes siguiente (la cuota se
+resetea el día 1). Revisar <code>GET /v1/usage</code> para ver cuánto falta, y
+considerar un plan con más cuota si es algo recurrente.</p>
+<h3 id="500-internal-server-error"><code>500 Internal Server Error</code></h3>
+<p>Falló la escritura del lado del servidor (problema de conexión a MinIO o
+Postgres, datos malformados que <code>pandas.DataFrame(records)</code> no pudo
+convertir, etc.).</p>
+<pre><code class="language-json">{ &quot;detail&quot;: &quot;Error al escribir: &lt;detalle de la excepción&gt;&quot; }
+</code></pre>
+<p><strong>Cómo reaccionar</strong>: sí tiene sentido reintentar (con backoff) si el error
+parece transitorio (timeout de conexión); si el <code>detail</code> apunta a un
+problema con los datos enviados (tipos inconsistentes entre filas, por
+ejemplo), hay que corregir el payload primero.</p>
+<h2 id="resumen-cuando-reintentar">Resumen: ¿cuándo reintentar?</h2>
+<table>
+<thead>
+<tr>
+<th>Código</th>
+<th>¿Reintentar?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400</code></td>
+<td>No — corregir el request.</td>
+</tr>
+<tr>
+<td><code>401</code></td>
+<td>No — corregir la key.</td>
+</tr>
+<tr>
+<td><code>403</code></td>
+<td>No — usar una key con el plan correcto.</td>
+</tr>
+<tr>
+<td><code>404</code></td>
+<td>No — corregir el nombre de la tabla.</td>
+</tr>
+<tr>
+<td><code>429</code> (rate limit)</td>
+<td>Sí, esperando al siguiente minuto.</td>
+</tr>
+<tr>
+<td><code>429</code> (cuota)</td>
+<td>No hasta el próximo mes, o subir de plan.</td>
+</tr>
+<tr>
+<td><code>500</code></td>
+<td>Con backoff, si se sospecha que es transitorio.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="errores-usando-strategodata_client-en-vez-de-la-api-rest">Errores usando <code>strategodata_client</code> en vez de la API REST</h2>
+<p>El cliente Python no traduce nada a códigos HTTP — deja subir las
+excepciones de Python tal cual (<code>ValueError</code>, excepciones de <code>psycopg2</code> o
+<code>s3fs</code>). Ver <a href="client.html#errores-del-lado-del-cliente">manejo de errores del cliente</a>.</p>
+  </article>
+</main>
+
+<footer class="site">
+  <div class="wrap footer-inner">
+    <div class="nav-mark">Stratego<span class="dot">·</span>Data</div>
+    <div class="footer-links">
+      <a href="../index.html#refineria">La refinería</a>
+      <a href="../index.html#integracion">Integración</a>
+      <a href="../index.html#planes">Planes</a>
+      <a href="index.html">Documentación</a>
+    </div>
+    <div>bronce &rarr; plata &rarr; oro, entregado como servicio.</div>
+  </div>
+</footer>
+</body>
+</html>
